@@ -198,6 +198,9 @@
                                     Data Nasc.</th>
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Bairro</th> <!-- NOVO -->
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Cidade</th>
                                 <th
                                     class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -207,6 +210,7 @@
                                     Ações</th>
                             </tr>
                         </thead>
+
                         <tbody id="cursistasTableBody" class="bg-white divide-y divide-gray-200">
                             <!-- Dados serão inseridos via JavaScript -->
                         </tbody>
@@ -686,13 +690,16 @@
                 const nome = cursista.nome || cursista.Nome || cursista['Qual seu nome completo?'] || 'N/A';
                 const sexo = cursista.sexo || cursista.Sexo || 'N/A';
                 const nascimento = cursista.nascimento || cursista['Qual sua data de nascimento?'] || 'N/A';
+                const bairro = cursista.bairro || cursista.Bairro || 'N/A';
                 const cidade = cursista.cidade || cursista.Cidade || 'N/A';
                 const problemaSaude = cursista.problemaSaude || cursista['Você possui algum problema de saúde?'] || 'N/A';
 
-                row.innerHTML = `
+
+               row.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap">${nome}</td>
                     <td class="px-6 py-4 whitespace-nowrap">${sexo}</td>
                     <td class="px-6 py-4 whitespace-nowrap">${nascimento}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${bairro}</td> <!-- NOVO -->
                     <td class="px-6 py-4 whitespace-nowrap">${cidade}</td>
                     <td class="px-6 py-4 whitespace-nowrap">${problemaSaude}</td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
@@ -704,6 +711,7 @@
                         </button>
                     </td>
                 `;
+
 
                 tableBody.appendChild(row);
             }
