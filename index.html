@@ -125,6 +125,11 @@
                         class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center btn-hover">
                         <i class="fas fa-download mr-2"></i> Exportar
                     </button>
+                    <button id="clearStorageButton"
+                        class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center btn-hover">
+                        <i class="fas fa-trash-alt mr-2"></i> Limpar Dados
+                    </button>
+
                 </div>
             </div>
 
@@ -237,7 +242,7 @@
                     </div>
                 </div>
             </div>
-            
+
         </div>
     </div>
 
@@ -440,6 +445,16 @@
             return data ? JSON.parse(data) : [];
         }
 
+        function clearCursistasStorage() {
+            if (confirm("Tem certeza que deseja apagar todos os dados salvos no navegador?")) {
+                localStorage.removeItem('cursistas');
+                cursistas = [];
+                updateUI();
+                alert('Os dados dos cursistas foram apagados do navegador.');
+            }
+        }
+
+
         // Inicialização
         document.addEventListener('DOMContentLoaded', function () {
             cursistas = loadFromLocalStorage(); // <- carrega dados salvos
@@ -451,6 +466,7 @@
         // Configurar event listeners
         function setupEventListeners() {
             // Toggle sidebar
+            document.getElementById('clearStorageButton').addEventListener('click', clearCursistasStorage);
             document.getElementById('toggleSidebar').addEventListener('click', function () {
                 const sidebar = document.querySelector('.sidebar');
                 const mainContent = document.querySelector('.main-content');
