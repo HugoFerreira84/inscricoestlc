@@ -57,6 +57,54 @@
             height: 250px;
             width: 100%;
         }
+
+        /* Ajustes para telas menores (celulares) */
+        @media (max-width: 768px) {
+
+            /* Sidebar retrátil */
+            .sidebar {
+                position: fixed;
+                width: 200px;
+                height: 100%;
+                left: -200px;
+                top: 0;
+                z-index: 50;
+            }
+
+            .sidebar.active {
+                left: 0;
+            }
+
+            .main-content {
+                margin-left: 0 !important;
+                padding: 1rem;
+            }
+
+            /* Botões no cabeçalho em coluna */
+            .flex.space-x-3 {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            /* Tabela com scroll horizontal */
+            .table-container {
+                overflow-x: auto;
+            }
+
+            table {
+                min-width: 600px;
+            }
+
+            /* Estatísticas em 2 colunas no mobile */
+            .grid.md\:grid-cols-4 {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            /* Gráficos em 1 coluna */
+            .grid.md\:grid-cols-2 {
+                grid-template-columns: repeat(1, minmax(0, 1fr));
+            }
+        }
     </style>
 </head>
 
@@ -453,6 +501,7 @@
             if (confirm("Tem certeza que deseja apagar todos os dados salvos no navegador?")) {
                 localStorage.removeItem('cursistas');
                 cursistas = [];
+                updateBairroFilter();
                 updateUI();
                 alert('Os dados dos cursistas foram apagados do navegador.');
             }
@@ -462,6 +511,7 @@
         // Inicialização
         document.addEventListener('DOMContentLoaded', function () {
             cursistas = loadFromLocalStorage(); // <- carrega dados salvos
+            updateBairroFilter();
             setupEventListeners();
             updateUI();
         });
@@ -577,8 +627,8 @@
                 skipEmptyLines: true,
                 complete: function (results) {
                     cursistas = results.data;
-                    saveToLocalStorage();
                     updateBairroFilter();
+                    saveToLocalStorage();
                     updateUI();
 
                     // Esconder a drop zone após o upload
@@ -594,14 +644,20 @@
         // Atualizar filtro de bairros
         function updateBairroFilter() {
             const bairroFilter = document.getElementById('bairroFilter');
-            const bairros = [...new Set(cursistas.map(c => c.Bairro || c.bairro).filter(b => b))].sort();
 
-            // Limpar opções existentes (mantendo a primeira)
+            // Limpar todas as opções exceto a primeira
             while (bairroFilter.options.length > 1) {
                 bairroFilter.remove(1);
             }
 
-            // Adicionar novos bairros
+            // Obter todos os bairros únicos dos cursistas
+            const bairros = [...new Set(cursistas
+                .map(c => c.bairro || c.Bairro || '') // Extrair bairro de diferentes formatos
+                .filter(b => b && b.trim() !== '') // Remover valores vazios
+                .map(b => b.trim()) // Remover espaços em branco
+            )].sort(); // Ordenar alfabeticamente
+
+            // Adicionar novos bairros ao filtro
             bairros.forEach(bairro => {
                 const option = document.createElement('option');
                 option.value = bairro;
@@ -695,7 +751,7 @@
                 const problemaSaude = cursista.problemaSaude || cursista['Você possui algum problema de saúde?'] || 'N/A';
 
 
-               row.innerHTML = `
+                row.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap">${nome}</td>
                     <td class="px-6 py-4 whitespace-nowrap">${sexo}</td>
                     <td class="px-6 py-4 whitespace-nowrap">${nascimento}</td>
@@ -896,8 +952,8 @@
                 cursistas[editIndex] = { ...cursistas[editIndex], ...cursistaData };
             }
 
-            saveToLocalStorage();
             updateBairroFilter();
+            saveToLocalStorage();
             updateUI();
             closeModal();
 
