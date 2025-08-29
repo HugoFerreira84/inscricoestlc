@@ -61,7 +61,7 @@
 </head>
 
 <body class="bg-gray-100">
-    <!-- Sidebar -->
+    <!-- Sidebar (same as dashboard, with ids for links) -->
     <div class="sidebar fixed h-full bg-blue-800 text-white p-4 shadow-lg">
         <div class="flex items-center justify-between mb-8">
             <h1 class="text-xl font-bold">64º TLC</h1>
@@ -69,41 +69,42 @@
                 <i class="fas fa-bars"></i>
             </button>
         </div>
-
         <ul class="space-y-2">
-            <li class="p-2 hover:bg-blue-700 rounded cursor-pointer flex items-center">
+            <li id="dashboard-link" class="p-2 rounded cursor-pointer flex items-center">
                 <a href="index.html" class="flex items-center w-full">
                     <i class="fas fa-home w-6"></i>
                     <span class="ml-2 sidebar-text">Dashboard</span>
                 </a>
             </li>
-            <li class="p-2 bg-blue-700 rounded cursor-pointer flex items-center">
-                <i class="fas fa-users w-6"></i>
+            <!--<li id="cursistas-link" class="p-2 rounded cursor-pointer flex items-center">
                 <a href="cursistas.html" class="flex items-center w-full">
+                    <i class="fas fa-users w-6"></i>
                     <span class="ml-2 sidebar-text">Cursistas</span>
                 </a>
             </li>
-            <li class="p-2 hover:bg-blue-700 rounded cursor-pointer flex items-center">
+            <li id="relatorios-link" class="p-2 rounded cursor-pointer flex items-center">
                 <a href="relatorios.html" class="flex items-center w-full">
                     <i class="fas fa-chart-bar w-6"></i>
                     <span class="ml-2 sidebar-text">Relatórios</span>
                 </a>
             </li>
-            <li class="p-2 hover:bg-blue-700 rounded cursor-pointer flex items-center">
+            <li id="configuracoes-link" class="p-2 rounded cursor-pointer flex items-center">
                 <a href="configuracoes.html" class="flex items-center w-full">
                     <i class="fas fa-cog w-6"></i>
                     <span class="ml-2 sidebar-text">Configurações</span>
                 </a>
-            </li>
+            </li>-->
         </ul>
-
         <div class="mt-auto pt-4 border-t border-blue-700">
             <div class="p-2 hover:bg-blue-700 rounded cursor-pointer flex items-center">
-                <i class="fas fa-sign-out-alt w-6"></i>
-                <span class="ml-2 sidebar-text">Sair</span>
+                <a href="#" class="flex items-center w-full">
+                    <i class="fas fa-sign-out-alt w-6"></i>
+                    <span class="ml-2 sidebar-text">Sair</span>
+                </a>
             </div>
         </div>
     </div>
+
 
     <!-- Main Content -->
     <div class="main-content p-6">
@@ -175,22 +176,6 @@
                 </div>
             </div>
 
-            <!-- Gráficos -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div class="bg-white p-4 rounded-lg shadow">
-                    <h3 class="font-semibold mb-4">Distribuição por Sexo</h3>
-                    <div class="chart-container">
-                        <canvas id="genderChart"></canvas>
-                    </div>
-                </div>
-                <div class="bg-white p-4 rounded-lg shadow">
-                    <h3 class="font-semibold mb-4">Distribuição por Cidade</h3>
-                    <div class="chart-container">
-                        <canvas id="cityChart"></canvas>
-                    </div>
-                </div>
-            </div>
-
             <!-- Tabela de Cursistas -->
             <div class="bg-white rounded-lg shadow overflow-hidden">
                 <div class="table-container">
@@ -235,6 +220,24 @@
                     <button id="nextPage" class="px-3 py-1 rounded border bg-white text-gray-700">Próximo</button>
                 </div>
             </div>
+
+
+            <!-- Gráficos -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="font-semibold mb-4">Distribuição por Sexo</h3>
+                    <div class="chart-container">
+                        <canvas id="genderChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="font-semibold mb-4">Distribuição por Cidade</h3>
+                    <div class="chart-container">
+                        <canvas id="cityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            
         </div>
     </div>
 
@@ -428,11 +431,22 @@
         let cityChart = null;
         let deleteIndex = -1;
 
+        function saveToLocalStorage() {
+            localStorage.setItem('cursistas', JSON.stringify(cursistas));
+        }
+
+        function loadFromLocalStorage() {
+            const data = localStorage.getItem('cursistas');
+            return data ? JSON.parse(data) : [];
+        }
+
         // Inicialização
         document.addEventListener('DOMContentLoaded', function () {
+            cursistas = loadFromLocalStorage(); // <- carrega dados salvos
             setupEventListeners();
             updateUI();
         });
+
 
         // Configurar event listeners
         function setupEventListeners() {
@@ -515,6 +529,10 @@
             });
 
             document.getElementById('confirmDelete').addEventListener('click', function () {
+                cursistas.splice(deleteIndex, 1);
+                saveToLocalStorage();
+                updateUI();
+
                 if (deleteIndex !== -1) {
                     cursistas.splice(deleteIndex, 1);
                     updateUI();
@@ -539,6 +557,7 @@
                 skipEmptyLines: true,
                 complete: function (results) {
                     cursistas = results.data;
+                    saveToLocalStorage();
                     updateBairroFilter();
                     updateUI();
 
@@ -853,6 +872,7 @@
                 cursistas[editIndex] = { ...cursistas[editIndex], ...cursistaData };
             }
 
+            saveToLocalStorage();
             updateBairroFilter();
             updateUI();
             closeModal();
