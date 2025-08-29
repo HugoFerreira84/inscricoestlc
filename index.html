@@ -1,0 +1,887 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de Gerenciamento de Cursistas - 64º TLC</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .sidebar {
+            width: 250px;
+            transition: all 0.3s ease;
+        }
+
+        .main-content {
+            margin-left: 250px;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar.collapsed {
+            width: 70px;
+        }
+
+        .main-content.expanded {
+            margin-left: 70px;
+        }
+
+        .table-container {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .btn-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .drop-zone {
+            border: 2px dashed #3b82f6;
+            border-radius: 0.5rem;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .drop-zone.dragover {
+            background-color: #eff6ff;
+            border-color: #2563eb;
+        }
+
+        /* Garantir que os gráficos tenham altura fixa */
+        .chart-container {
+            position: relative;
+            height: 250px;
+            width: 100%;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100">
+    <!-- Sidebar -->
+    <div class="sidebar fixed h-full bg-blue-800 text-white p-4 shadow-lg">
+        <div class="flex items-center justify-between mb-8">
+            <h1 class="text-xl font-bold">64º TLC</h1>
+            <button id="toggleSidebar" class="text-white">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+
+        <ul class="space-y-2">
+            <li class="p-2 hover:bg-blue-700 rounded cursor-pointer flex items-center">
+                <a href="index.html" class="flex items-center w-full">
+                    <i class="fas fa-home w-6"></i>
+                    <span class="ml-2 sidebar-text">Dashboard</span>
+                </a>
+            </li>
+            <li class="p-2 bg-blue-700 rounded cursor-pointer flex items-center">
+                <i class="fas fa-users w-6"></i>
+                <a href="cursistas.html" class="flex items-center w-full">
+                    <span class="ml-2 sidebar-text">Cursistas</span>
+                </a>
+            </li>
+            <li class="p-2 hover:bg-blue-700 rounded cursor-pointer flex items-center">
+                <a href="relatorios.html" class="flex items-center w-full">
+                    <i class="fas fa-chart-bar w-6"></i>
+                    <span class="ml-2 sidebar-text">Relatórios</span>
+                </a>
+            </li>
+            <li class="p-2 hover:bg-blue-700 rounded cursor-pointer flex items-center">
+                <a href="configuracoes.html" class="flex items-center w-full">
+                    <i class="fas fa-cog w-6"></i>
+                    <span class="ml-2 sidebar-text">Configurações</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="mt-auto pt-4 border-t border-blue-700">
+            <div class="p-2 hover:bg-blue-700 rounded cursor-pointer flex items-center">
+                <i class="fas fa-sign-out-alt w-6"></i>
+                <span class="ml-2 sidebar-text">Sair</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content p-6">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">Gerenciamento de Cursistas</h2>
+                <div class="flex space-x-3">
+                    <label for="fileUpload"
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center btn-hover cursor-pointer">
+                        <i class="fas fa-upload mr-2"></i> Upload CSV
+                    </label>
+                    <input type="file" id="fileUpload" accept=".csv" class="hidden">
+                    <button id="addButton"
+                        class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center btn-hover">
+                        <i class="fas fa-plus mr-2"></i> Novo Cursista
+                    </button>
+                    <button id="downloadButton"
+                        class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg flex items-center btn-hover">
+                        <i class="fas fa-download mr-2"></i> Exportar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Drop Zone para Upload -->
+            <div id="dropZone" class="drop-zone mb-6 bg-blue-50">
+                <i class="fas fa-cloud-upload-alt text-blue-500 text-4xl mb-3"></i>
+                <p class="text-blue-700 font-semibold">Arraste e solte o arquivo CSV aqui</p>
+                <p class="text-gray-600 text-sm mt-1">ou</p>
+                <label for="fileUpload" class="text-blue-600 underline cursor-pointer">clique para selecionar o
+                    arquivo</label>
+            </div>
+
+            <!-- Filtros e Busca -->
+            <div class="mb-6 flex flex-wrap gap-4">
+                <div class="relative flex-grow">
+                    <input type="text" id="searchInput" placeholder="Buscar por nome..."
+                        class="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <i class="fas fa-search absolute right-3 top-3 text-gray-400"></i>
+                </div>
+                <select id="bairroFilter"
+                    class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Todos os bairros</option>
+                </select>
+                <select id="sexoFilter"
+                    class="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">Todos os sexos</option>
+                    <option value="Masculino">Masculino</option>
+                    <option value="Feminino">Feminino</option>
+                </select>
+            </div>
+
+            <!-- Estatísticas -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                    <div id="totalCursistas" class="text-blue-600 text-3xl font-bold">0</div>
+                    <div class="text-gray-600">Total de Cursistas</div>
+                </div>
+                <div class="bg-green-50 p-4 rounded-lg border border-green-100">
+                    <div id="totalFeminino" class="text-green-600 text-3xl font-bold">0</div>
+                    <div class="text-gray-600">Feminino</div>
+                </div>
+                <div class="bg-purple-50 p-4 rounded-lg border border-purple-100">
+                    <div id="totalMasculino" class="text-purple-600 text-3xl font-bold">0</div>
+                    <div class="text-gray-600">Masculino</div>
+                </div>
+                <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-100">
+                    <div id="totalProblemasSaude" class="text-yellow-600 text-3xl font-bold">0</div>
+                    <div class="text-gray-600">Com problemas de saúde</div>
+                </div>
+            </div>
+
+            <!-- Gráficos -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="font-semibold mb-4">Distribuição por Sexo</h3>
+                    <div class="chart-container">
+                        <canvas id="genderChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <h3 class="font-semibold mb-4">Distribuição por Cidade</h3>
+                    <div class="chart-container">
+                        <canvas id="cityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabela de Cursistas -->
+            <div class="bg-white rounded-lg shadow overflow-hidden">
+                <div class="table-container">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Nome</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Sexo</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Data Nasc.</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Cidade</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Problema Saúde</th>
+                                <th
+                                    class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cursistasTableBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Dados serão inseridos via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Paginação -->
+            <div class="mt-4 flex justify-between items-center">
+                <div class="text-sm text-gray-700">
+                    Mostrando <span id="currentItems" class="font-medium">0</span> de <span id="totalItems"
+                        class="font-medium">0</span> resultados
+                </div>
+                <div class="flex space-x-2">
+                    <button id="prevPage" class="px-3 py-1 rounded border bg-white text-gray-700">Anterior</button>
+                    <button id="nextPage" class="px-3 py-1 rounded border bg-white text-gray-700">Próximo</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para Adicionar/Editar -->
+    <div id="modal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-lg shadow-xl w-11/12 md:w-3/4 lg:w-2/3 max-h-screen overflow-y-auto">
+            <div class="border-b px-6 py-4 flex justify-between items-center">
+                <h3 class="text-lg font-semibold" id="modalTitle">Adicionar Cursista</h3>
+                <button id="closeModal" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="p-6">
+                <form id="cursistaForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="hidden" id="editIndex" value="-1">
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="nome">Nome Completo</label>
+                        <input type="text" id="nome"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="sexo">Sexo</label>
+                        <select id="sexo"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required>
+                            <option value="">Selecione</option>
+                            <option value="Masculino">Masculino</option>
+                            <option value="Feminino">Feminino</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="nascimento">Data de
+                            Nascimento</label>
+                        <input type="date" id="nascimento"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="problemaSaude">Problema de
+                            Saúde</label>
+                        <input type="text" id="problemaSaude"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="medicamento">Medicamento em
+                            Uso</label>
+                        <input type="text" id="medicamento"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="alergia">Alergia</label>
+                        <input type="text" id="alergia"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="mb-4 md:col-span-2">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="informacoes">Informações
+                            Adicionais</label>
+                        <textarea id="informacoes"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            rows="3"></textarea>
+                    </div>
+
+                    <div class="mb-4 md:col-span-2">
+                        <h4 class="text-lg font-semibold mb-2 border-b pb-2">Endereço</h4>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="rua">Rua</label>
+                        <input type="text" id="rua"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="numero">Número</label>
+                        <input type="text" id="numero"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="bairro">Bairro</label>
+                        <input type="text" id="bairro"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="cidade">Cidade</label>
+                        <input type="text" id="cidade"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="cep">CEP</label>
+                        <input type="text" id="cep"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="referencia">Ponto de
+                            Referência</label>
+                        <input type="text" id="referencia"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <div class="mb-4 md:col-span-2">
+                        <h4 class="text-lg font-semibold mb-2 border-b pb-2">Contato</h4>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="telefone">Telefone</label>
+                        <input type="text" id="telefone"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="telefoneResponsavel">Telefone do
+                            Responsável</label>
+                        <input type="text" id="telefoneResponsavel"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="nomeResponsavel">Nome do
+                            Responsável</label>
+                        <input type="text" id="nomeResponsavel"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="parentesco">Parentesco</label>
+                        <input type="text" id="parentesco"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <div class="mb-4 md:col-span-2">
+                        <h4 class="text-lg font-semibold mb-2 border-b pb-2">Indicação</h4>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="indicacaoPor">Indicado
+                            por</label>
+                        <input type="text" id="indicacaoPor"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="telefoneIndicacao">Telefone de
+                            quem indicou</label>
+                        <input type="text" id="telefoneIndicacao"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+
+                    <div class="mb-4 md:col-span-2">
+                        <h4 class="text-lg font-semibold mb-2 border-b pb-2">ENEM</h4>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="enem">Fará o ENEM 2024?</label>
+                        <select id="enem"
+                            class="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="">Selecione</option>
+                            <option value="Sim">Sim</option>
+                            <option value="Não">Não</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="border-t px-6 py-4 flex justify-end space-x-3">
+                <button id="cancelButton"
+                    class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">Cancelar</button>
+                <button id="saveButton"
+                    class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Salvar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação de Exclusão -->
+    <div id="deleteModal" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex items-center justify-center hidden z-50">
+        <div class="bg-white rounded-lg shadow-xl w-11/12 md:w-1/3 p-6">
+            <div class="mb-4">
+                <h3 class="text-lg font-semibold">Confirmar Exclusão</h3>
+                <p class="text-gray-600 mt-2">Tem certeza que deseja excluir este cursista? Esta ação não pode ser
+                    desfeita.</p>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button id="cancelDelete"
+                    class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">Cancelar</button>
+                <button id="confirmDelete"
+                    class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Excluir</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variáveis globais
+        let cursistas = [];
+        let currentPage = 1;
+        const itemsPerPage = 10;
+        let genderChart = null;
+        let cityChart = null;
+        let deleteIndex = -1;
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', function () {
+            setupEventListeners();
+            updateUI();
+        });
+
+        // Configurar event listeners
+        function setupEventListeners() {
+            // Toggle sidebar
+            document.getElementById('toggleSidebar').addEventListener('click', function () {
+                const sidebar = document.querySelector('.sidebar');
+                const mainContent = document.querySelector('.main-content');
+                const sidebarTexts = document.querySelectorAll('.sidebar-text');
+
+                sidebar.classList.toggle('collapsed');
+                mainContent.classList.toggle('expanded');
+
+                sidebarTexts.forEach(text => {
+                    text.classList.toggle('hidden');
+                });
+            });
+
+            // Upload de arquivo
+            document.getElementById('fileUpload').addEventListener('change', handleFileUpload);
+
+            // Drag and drop
+            const dropZone = document.getElementById('dropZone');
+            dropZone.addEventListener('dragover', function (e) {
+                e.preventDefault();
+                dropZone.classList.add('dragover');
+            });
+
+            dropZone.addEventListener('dragleave', function () {
+                dropZone.classList.remove('dragover');
+            });
+
+            dropZone.addEventListener('drop', function (e) {
+                e.preventDefault();
+                dropZone.classList.remove('dragover');
+
+                if (e.dataTransfer.files.length) {
+                    handleFileUpload({ target: { files: e.dataTransfer.files } });
+                }
+            });
+
+            // Filtros e busca
+            document.getElementById('searchInput').addEventListener('input', updateUI);
+            document.getElementById('bairroFilter').addEventListener('change', updateUI);
+            document.getElementById('sexoFilter').addEventListener('change', updateUI);
+
+            // Paginação
+            document.getElementById('prevPage').addEventListener('click', function () {
+                if (currentPage > 1) {
+                    currentPage--;
+                    updateUI();
+                }
+            });
+
+            document.getElementById('nextPage').addEventListener('click', function () {
+                const totalPages = Math.ceil(getFilteredCursistas().length / itemsPerPage);
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    updateUI();
+                }
+            });
+
+            // Modal
+            document.getElementById('addButton').addEventListener('click', function () {
+                document.getElementById('modalTitle').textContent = 'Adicionar Cursista';
+                document.getElementById('editIndex').value = '-1';
+                document.getElementById('cursistaForm').reset();
+                document.getElementById('modal').classList.remove('hidden');
+            });
+
+            document.getElementById('closeModal').addEventListener('click', closeModal);
+            document.getElementById('cancelButton').addEventListener('click', closeModal);
+
+            document.getElementById('saveButton').addEventListener('click', function () {
+                saveCursista();
+            });
+
+            // Modal de exclusão
+            document.getElementById('cancelDelete').addEventListener('click', function () {
+                document.getElementById('deleteModal').classList.add('hidden');
+            });
+
+            document.getElementById('confirmDelete').addEventListener('click', function () {
+                if (deleteIndex !== -1) {
+                    cursistas.splice(deleteIndex, 1);
+                    updateUI();
+                    document.getElementById('deleteModal').classList.add('hidden');
+                    deleteIndex = -1;
+                }
+            });
+
+            // Download
+            document.getElementById('downloadButton').addEventListener('click', function () {
+                exportToCSV();
+            });
+        }
+
+        // Processar upload de arquivo
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: function (results) {
+                    cursistas = results.data;
+                    updateBairroFilter();
+                    updateUI();
+
+                    // Esconder a drop zone após o upload
+                    document.getElementById('dropZone').classList.add('hidden');
+                },
+                error: function (error) {
+                    console.error('Erro ao processar o arquivo:', error);
+                    alert('Erro ao processar o arquivo. Verifique se é um CSV válido.');
+                }
+            });
+        }
+
+        // Atualizar filtro de bairros
+        function updateBairroFilter() {
+            const bairroFilter = document.getElementById('bairroFilter');
+            const bairros = [...new Set(cursistas.map(c => c.Bairro || c.bairro).filter(b => b))].sort();
+
+            // Limpar opções existentes (mantendo a primeira)
+            while (bairroFilter.options.length > 1) {
+                bairroFilter.remove(1);
+            }
+
+            // Adicionar novos bairros
+            bairros.forEach(bairro => {
+                const option = document.createElement('option');
+                option.value = bairro;
+                option.textContent = bairro;
+                bairroFilter.appendChild(option);
+            });
+        }
+
+        // Obter cursistas filtrados
+        function getFilteredCursistas() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const bairroFilter = document.getElementById('bairroFilter').value;
+            const sexoFilter = document.getElementById('sexoFilter').value;
+
+            return cursistas.filter(cursista => {
+                const nome = cursista.nome || cursista.Nome || cursista['Qual seu nome completo?'] || '';
+                const matchesSearch = !searchTerm || nome.toLowerCase().includes(searchTerm);
+
+                const cursistaBairro = cursista.Bairro || cursista.bairro;
+                const matchesBairro = !bairroFilter || cursistaBairro === bairroFilter;
+
+                const cursistaSexo = cursista.Sexo || cursista.sexo;
+                const matchesSexo = !sexoFilter || cursistaSexo === sexoFilter;
+
+                return matchesSearch && matchesBairro && matchesSexo;
+            });
+        }
+
+        // Atualizar a interface
+        function updateUI() {
+            const filteredCursistas = getFilteredCursistas();
+            const totalPages = Math.ceil(filteredCursistas.length / itemsPerPage);
+
+            // Ajustar página atual se necessário
+            if (currentPage > totalPages) {
+                currentPage = totalPages || 1;
+            }
+
+            // Atualizar estatísticas
+            updateStats(filteredCursistas);
+
+            // Atualizar tabela
+            updateTable(filteredCursistas);
+
+            // Atualizar gráficos (apenas se houver dados)
+            if (filteredCursistas.length > 0) {
+                updateCharts(filteredCursistas);
+            }
+
+            // Atualizar paginação
+            document.getElementById('currentItems').textContent = filteredCursistas.length;
+            document.getElementById('totalItems').textContent = filteredCursistas.length;
+
+            document.getElementById('prevPage').disabled = currentPage === 1;
+            document.getElementById('nextPage').disabled = currentPage === totalPages || totalPages === 0;
+        }
+
+        // Atualizar estatísticas
+        function updateStats(cursistas) {
+            const total = cursistas.length;
+            const feminino = cursistas.filter(c => (c.Sexo || c.sexo) === 'Feminino').length;
+            const masculino = cursistas.filter(c => (c.Sexo || c.sexo) === 'Masculino').length;
+            const problemas = cursistas.filter(c => {
+                const problema = c['Você possui algum problema de saúde?'] || c.problemaSaude;
+                return problema && problema.toLowerCase() !== 'n' && problema.toLowerCase() !== 'não' && problema !== '.';
+            }).length;
+
+            document.getElementById('totalCursistas').textContent = total;
+            document.getElementById('totalFeminino').textContent = feminino;
+            document.getElementById('totalMasculino').textContent = masculino;
+            document.getElementById('totalProblemasSaude').textContent = problemas;
+        }
+
+        // Atualizar tabela
+        function updateTable(cursistas) {
+            const tableBody = document.getElementById('cursistasTableBody');
+            tableBody.innerHTML = '';
+
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = Math.min(startIndex + itemsPerPage, cursistas.length);
+
+            for (let i = startIndex; i < endIndex; i++) {
+                const cursista = cursistas[i];
+                const row = document.createElement('tr');
+
+                const nome = cursista.nome || cursista.Nome || cursista['Qual seu nome completo?'] || 'N/A';
+                const sexo = cursista.sexo || cursista.Sexo || 'N/A';
+                const nascimento = cursista.nascimento || cursista['Qual sua data de nascimento?'] || 'N/A';
+                const cidade = cursista.cidade || cursista.Cidade || 'N/A';
+                const problemaSaude = cursista.problemaSaude || cursista['Você possui algum problema de saúde?'] || 'N/A';
+
+                row.innerHTML = `
+                    <td class="px-6 py-4 whitespace-nowrap">${nome}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${sexo}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${nascimento}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${cidade}</td>
+                    <td class="px-6 py-4 whitespace-nowrap">${problemaSaude}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <button class="text-blue-600 hover:text-blue-900 edit-btn mr-2" data-index="${i}">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="text-red-600 hover:text-red-900 delete-btn" data-index="${i}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+
+                tableBody.appendChild(row);
+            }
+
+            // Adicionar event listeners aos botões
+            document.querySelectorAll('.edit-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    editCursista(index);
+                });
+            });
+
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const index = parseInt(this.getAttribute('data-index'));
+                    deleteCursista(index);
+                });
+            });
+        }
+
+        // Atualizar gráficos
+        function updateCharts(cursistas) {
+            // Destruir gráficos existentes para evitar sobreposição
+            if (genderChart) {
+                genderChart.destroy();
+            }
+            if (cityChart) {
+                cityChart.destroy();
+            }
+
+            // Gráfico de gênero
+            const feminino = cursistas.filter(c => (c.Sexo || c.sexo) === 'Feminino').length;
+            const masculino = cursistas.filter(c => (c.Sexo || c.sexo) === 'Masculino').length;
+
+            const genderCtx = document.getElementById('genderChart').getContext('2d');
+            genderChart = new Chart(genderCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Masculino', 'Feminino'],
+                    datasets: [{
+                        data: [masculino, feminino],
+                        backgroundColor: ['#3B82F6', '#EC4899'],
+                        hoverBackgroundColor: ['#2563EB', '#DB2777']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+
+            // Gráfico de cidades
+            const cidades = {};
+            cursistas.forEach(cursista => {
+                const cidade = cursista.cidade || cursista.Cidade || 'Não informado';
+                cidades[cidade] = (cidades[cidade] || 0) + 1;
+            });
+
+            const sortedCidades = Object.entries(cidades)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5); // Top 5 cidades
+
+            const cityCtx = document.getElementById('cityChart').getContext('2d');
+            cityChart = new Chart(cityCtx, {
+                type: 'bar',
+                data: {
+                    labels: sortedCidades.map(item => item[0]),
+                    datasets: [{
+                        label: 'Número de Cursistas',
+                        data: sortedCidades.map(item => item[1]),
+                        backgroundColor: '#10B981',
+                        hoverBackgroundColor: '#059669'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Editar cursista
+        function editCursista(index) {
+            const cursista = cursistas[index];
+
+            document.getElementById('modalTitle').textContent = 'Editar Cursista';
+            document.getElementById('editIndex').value = index;
+
+            // Preencher formulário com dados existentes
+            document.getElementById('nome').value = cursista.nome || cursista.Nome || cursista['Qual seu nome completo?'] || '';
+            document.getElementById('sexo').value = cursista.sexo || cursista.Sexo || '';
+            document.getElementById('nascimento').value = formatDateForInput(cursista.nascimento || cursista['Qual sua data de nascimento?'] || '');
+            document.getElementById('problemaSaude').value = cursista.problemaSaude || cursista['Você possui algum problema de saúde?'] || '';
+            document.getElementById('medicamento').value = cursista.medicamento || cursista['Você faz o uso regular de algum medicamento?'] || '';
+            document.getElementById('alergia').value = cursista.alergia || cursista['Possui alguma alergia (Medicação ou Alimento)'] || '';
+            document.getElementById('informacoes').value = cursista.informacoes || cursista['Mais alguma informação que considere relevante?'] || '';
+            document.getElementById('rua').value = cursista.rua || cursista.Rua || '';
+            document.getElementById('numero').value = cursista.numero || cursista.Número || '';
+            document.getElementById('bairro').value = cursista.bairro || cursista.Bairro || '';
+            document.getElementById('cidade').value = cursista.cidade || cursista.Cidade || '';
+            document.getElementById('cep').value = cursista.cep || cursista.CEP || '';
+            document.getElementById('referencia').value = cursista.referencia || cursista['Um ponto de referência'] || '';
+            document.getElementById('telefone').value = cursista.telefone || cursista['Qual o seu telefone?'] || '';
+            document.getElementById('telefoneResponsavel').value = cursista.telefoneResponsavel || cursista['Telefone de um responsável'] || '';
+            document.getElementById('nomeResponsavel').value = cursista.nomeResponsavel || cursista['Qual o nome dessa pessoa?'] || '';
+            document.getElementById('parentesco').value = cursista.parentesco || cursista['Qual seu grau de parentesco com ele(a)?'] || '';
+            document.getElementById('indicacaoPor').value = cursista.indicacaoPor || cursista['Por quem conheceu'] || '';
+            document.getElementById('telefoneIndicacao').value = cursista.telefoneIndicacao || cursista['Qual o telefone dessa pessoa?'] || '';
+            document.getElementById('enem').value = cursista.enem || cursista['Você irá realizar a prova do ENEM 2024?'] || '';
+
+            document.getElementById('modal').classList.remove('hidden');
+        }
+
+        // Formatar data para input type="date"
+        function formatDateForInput(dateStr) {
+            if (!dateStr) return '';
+
+            // Tentar converter de formato DD/MM/YYYY para YYYY-MM-DD
+            const parts = dateStr.split('/');
+            if (parts.length === 3) {
+                return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            }
+
+            return dateStr;
+        }
+
+        // Excluir cursista
+        function deleteCursista(index) {
+            deleteIndex = index;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        // Fechar modal
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+
+        // Salvar cursista
+        function saveCursista() {
+            const editIndex = parseInt(document.getElementById('editIndex').value);
+            const cursistaData = {
+                nome: document.getElementById('nome').value,
+                sexo: document.getElementById('sexo').value,
+                nascimento: document.getElementById('nascimento').value,
+                problemaSaude: document.getElementById('problemaSaude').value,
+                medicamento: document.getElementById('medicamento').value,
+                alergia: document.getElementById('alergia').value,
+                informacoes: document.getElementById('informacoes').value,
+                rua: document.getElementById('rua').value,
+                numero: document.getElementById('numero').value,
+                bairro: document.getElementById('bairro').value,
+                cidade: document.getElementById('cidade').value,
+                cep: document.getElementById('cep').value,
+                referencia: document.getElementById('referencia').value,
+                telefone: document.getElementById('telefone').value,
+                telefoneResponsavel: document.getElementById('telefoneResponsavel').value,
+                nomeResponsavel: document.getElementById('nomeResponsavel').value,
+                parentesco: document.getElementById('parentesco').value,
+                indicacaoPor: document.getElementById('indicacaoPor').value,
+                telefoneIndicacao: document.getElementById('telefoneIndicacao').value,
+                enem: document.getElementById('enem').value
+            };
+
+            if (editIndex === -1) {
+                // Adicionar novo cursista
+                cursistas.push(cursistaData);
+            } else {
+                // Atualizar cursista existente
+                cursistas[editIndex] = { ...cursistas[editIndex], ...cursistaData };
+            }
+
+            updateBairroFilter();
+            updateUI();
+            closeModal();
+
+            alert('Cursista salvo com sucesso!');
+        }
+
+        // Exportar para CSV
+        function exportToCSV() {
+            if (cursistas.length === 0) {
+                alert('Não há dados para exportar.');
+                return;
+            }
+
+            const csv = Papa.unparse(cursistas);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            const date = new Date().toISOString().slice(0, 10);
+
+            link.setAttribute('href', url);
+            link.setAttribute('download', `cursistas_64_tlc_${date}.csv`);
+            link.style.visibility = 'hidden';
+
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+
+</html>
